@@ -1,7 +1,9 @@
 DATA_DIR <- "/Users/mar/BIO/PROJECTS/DREAM/BEATAML/Data/"
+MYDATA_DIR <- "/Users/mar/BIO/PROJECTS/DREAM/BEATAML/mydata/"
 
 library(data.table)
 library(glmnet)
+library(xgboost)
 
 ys <- read.csv(paste0(DATA_DIR,"aucs.csv"))
 ys <- data.table(ys)
@@ -276,7 +278,7 @@ data5 <- read.csv(paste0(DATA_DIR,"rnaseq.csv"))
 data5$Symbol <- NULL
 data6 <- setNames(data.frame(t(data5[,-1])), data5[,1])
 data6 <- setDT(data6, keep.rownames = TRUE)
-data6[, rn := gsub("X","",rn)] 
+data6[, rn := gsub("X","",rn)]
 data6[, lab_id := gsub("\\.","-",rn)]
 data6[, rn := NULL]
 
@@ -285,76 +287,63 @@ dataExp <- dataExp[lab_id != "14-00800"]
 
 write.csv(dataExp,"/Users/mar/BIO/PROJECTS/DREAM/BEATAML/mydata/trainingExp.csv", row.names = FALSE, quote = FALSE)
 
+inhs <- unique(ys$inhibitor)
+inhs <- data.table("inhibitor"=inhs)
+inhs[, filename := .I]
+inhs[, filename := paste0("model",filename)]
 
-# allCoefsExp <- data.table()
+write.csv(inhs,"/Users/mar/BIO/PROJECTS/DREAM/BEATAML/mydata/model_inhs.csv",row.names = FALSE,quote = FALSE)
+
+for(i in 1:nrow(inhs)){
+ inh <- inhs[i,inhibitor]
+ fname <- inhs[i, filename]
+
+ y <- ys[inhibitor == inh]
+ y <- y[lab_id != "14-00800"]
+ 
+ dt <- merge(y, dataExp, by="lab_id", all.x=TRUE)
+ dtoriginal <- copy(dt)
+ dt[, lab_id:=NULL]
+ dt[, inhibitor:=NULL]
+ 
+ X <- copy(dt)
+ X[,auc:=NULL]
+ yy <- dt[,auc]
+ XX <- as.matrix(X)
+ 
+ model <- xgboost(data=XX, label=yy, nround=40, objective="reg:squarederror")
+ xgb.save(model,paste0(MYDATA_DIR,fname))
+}
+
+
+
+# allCoefs <- data.table()
+# 
 # for(inh in unique(ys$inhibitor)){
 #   y <- ys[inhibitor == inh]
-# 
-#   dt <- merge(y, data6, by="lab_id", all.x=TRUE)
+#   y <- y[lab_id != "14-00800"]
+#   
+#   dt <- merge(y, dataExp, by="lab_id", all.x=TRUE)
 #   dtoriginal <- copy(dt)
 #   dt[, lab_id:=NULL]
 #   dt[, inhibitor:=NULL]
-# 
+#   write.csv(dt,"/Users/mar/BIO/PROJECTS/DREAM/BEATAML/mydata/trainingY.csv", row.names = FALSE, quote = FALSE)
+#   
 #   X <- copy(dt)
 #   X[,auc:=NULL]
 #   yy <- dt[,auc]
 #   XX <- as.matrix(X)
 #   cvfit <- cv.glmnet(XX,yy)
-#   
 #   coefs <- data.table(summary(coef(cvfit, s = "lambda.min")))
 #   coefs[, parname := names(dt)[i]]
 #   coefs[parname == "auc", parname:="Intercept"]
 #   print(nrow(coefs))
 #   coefs[, inhibitor := inh] 
 #   
-#   allCoefsExp <- rbind(allCoefsExp,coefs[,.(inhibitor,parname,"coef"=x)])  
+#   allCoefs <- rbind(allCoefs,coefs[,.(inhibitor,parname,"coef"=x)])  
 # }
-# ###
-
-
-allCoefs <- data.table()
-
-for(inh in unique(ys$inhibitor)){
-  y <- ys[inhibitor == inh]
-  y <- y[lab_id != "14-00800"]
-  
-  dt <- merge(y, dataExp, by="lab_id", all.x=TRUE)
-  dtoriginal <- copy(dt)
-  dt[, lab_id:=NULL]
-  dt[, inhibitor:=NULL]
-  write.csv(dt,"/Users/mar/BIO/PROJECTS/DREAM/BEATAML/mydata/trainingY.csv", row.names = FALSE, quote = FALSE)
-  
-  X <- copy(dt)
-  X[,auc:=NULL]
-  yy <- dt[,auc]
-  XX <- as.matrix(X)
-  cvfit <- cv.glmnet(XX,yy)
-  coefs <- data.table(summary(coef(cvfit, s = "lambda.min")))
-  coefs[, parname := names(dt)[i]]
-  coefs[parname == "auc", parname:="Intercept"]
-  print(nrow(coefs))
-  coefs[, inhibitor := inh] 
-  
-  allCoefs <- rbind(allCoefs,coefs[,.(inhibitor,parname,"coef"=x)])  
-}
-
-# finalCoefsTmp <- rbind(allCoefs,allCoefsExp)
-# finalCoefs <- finalCoefsTmp[parname != "Intercept"]
 # 
-# for(inh in unique(ys$inhibitor)){
-#  pars <- finalCoefs[inhibitor == inh] 
-#  formula <- paste(pars[,parname],collapse = " + ")
-#  formula <- paste0("auc ~ ",formula)
-#  
-#  dt <- merge(y, dataExp, by="lab_id", all.x=TRUE)
-#  dt[, lab_id:=NULL]
-#  dt[, inhibitor:=NULL]
-#  
-#  model <- lm(formula,data=dt)
-#  
-# }
-
-write.csv(allCoefs,"/Users/mar/BIO/PROJECTS/DREAM/BEATAML/mydata/model_coefs.csv",row.names = FALSE,quote = FALSE)
+# write.csv(allCoefs,"/Users/mar/BIO/PROJECTS/DREAM/BEATAML/mydata/model_coefs.csv",row.names = FALSE,quote = FALSE)
 
 
 

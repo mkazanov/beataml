@@ -3,6 +3,7 @@ MODEL_DIR <- "/Users/mar/BIO/PROJECTS/DREAM/BEATAML/mydata/"
 OUTPUT_DIR <- "/Users/mar/BIO/PROJECTS/DREAM/BEATAML/mydata/"
 
 library(data.table)
+library(xgboost)
 
 data1 <- read.csv(paste0(DATA_DIR,"clinical_categorical.csv"))
 data1 <- data.table(data1)
@@ -277,37 +278,63 @@ data6[, rn := NULL]
 
 dataExp <- merge(data,data6,by="lab_id")
 
-## Load model
+## Load and apply model
 
-modelCoefs <- read.csv(paste0(MODEL_DIR,"model_coefs.csv"))
-modelCoefs <- data.table(modelCoefs)
+models <- read.csv(paste0(MODEL_DIR,"model_inhs.csv"))
+models <- data.table(models)
 
-## Apply
+predTemplate <- dataExp[, .(lab_id)]
+dataExp[, lab_id:=NULL]
+XX <- as.matrix(dataExp)
 
 allPreds <- data.table()
 
-for(inh in unique(modelCoefs[,inhibitor])) 
-{
-  pred <- dataExp[,.(lab_id)]
+for(i in 1:nrow(models)){
+  inh <- models[i,inhibitor]
+  fname <- models[i,filename]
+  model <- xgb.load(paste0(MODEL_DIR,fname))
+  
+  aucs <- predict(model,XX)
+  pred <- copy(predTemplate)
   pred[, inhibitor := inh]
-  pred[, auc := 0]
-  coefs <- modelCoefs[inhibitor == inh]
-  
-  for(i in 1:nrow(coefs)){
-   varname <- as.character(coefs[i,parname])
-   cf <- coefs[i,coef]
-   if(varname == "Intercept"){
-     pred[, auc := cf]
-   } else {
-    pred <- cbind(pred,cf * dataExp[,varname,with=FALSE])
-    setnames(pred,c("lab_id","inhibitor","auc","tmp"))
-    pred[, auc := auc + tmp]
-    pred[,tmp:=NULL]
-   }
-  }
-  
+  pred <- cbind(pred,aucs)
+  setnames(pred,c("lab_id","inhibitor","auc"))
+           
   allPreds <- rbind(allPreds,pred)
-}  
+}
 
+
+# ## Load model
+# 
+# modelCoefs <- read.csv(paste0(MODEL_DIR,"model_coefs.csv"))
+# modelCoefs <- data.table(modelCoefs)
+# 
+# ## Apply
+# 
+# allPreds <- data.table()
+# 
+# for(inh in unique(modelCoefs[,inhibitor])) 
+# {
+#   pred <- dataExp[,.(lab_id)]
+#   pred[, inhibitor := inh]
+#   pred[, auc := 0]
+#   coefs <- modelCoefs[inhibitor == inh]
+#   
+#   for(i in 1:nrow(coefs)){
+#    varname <- as.character(coefs[i,parname])
+#    cf <- coefs[i,coef]
+#    if(varname == "Intercept"){
+#      pred[, auc := cf]
+#    } else {
+#     pred <- cbind(pred,cf * dataExp[,varname,with=FALSE])
+#     setnames(pred,c("lab_id","inhibitor","auc","tmp"))
+#     pred[, auc := auc + tmp]
+#     pred[,tmp:=NULL]
+#    }
+#   }
+#   
+#   allPreds <- rbind(allPreds,pred)
+# }  
+ 
 write.csv(allPreds,paste0(OUTPUT_DIR,"predictions.csv"),row.names = FALSE,quote = FALSE)
 
