@@ -4,6 +4,10 @@ MYDATA_DIR <- "/Users/mar/BIO/PROJECTS/DREAM/BEATAML/mydata/"
 library(data.table)
 library(glmnet)
 library(xgboost)
+library(caret)
+library(ranger)
+library(mlr)
+
 
 ys <- read.csv(paste0(DATA_DIR,"aucs.csv"))
 ys <- data.table(ys)
@@ -272,9 +276,11 @@ for(i in 1:nrow(data3)){
 
 data <- merge(data,data4,by="lab_id")
 
-write.csv(data,"/Users/mar/BIO/PROJECTS/DREAM/BEATAML/mydata/training.csv", row.names = FALSE, quote = FALSE)
+#write.csv(data,"/Users/mar/BIO/PROJECTS/DREAM/BEATAML/mydata/training.csv", row.names = FALSE, quote = FALSE)
 
 data5 <- read.csv(paste0(DATA_DIR,"rnaseq.csv"))
+#data5 <- data.table(data5)
+#data5 <- data5[Symbol %in% genes[,gene]] 
 data5$Symbol <- NULL
 data6 <- setNames(data.frame(t(data5[,-1])), data5[,1])
 data6 <- setDT(data6, keep.rownames = TRUE)
@@ -284,8 +290,9 @@ data6[, rn := NULL]
 
 dataExp <- merge(data,data6,by="lab_id")
 dataExp <- dataExp[lab_id != "14-00800"]
+#setnames(dataExp,"KRTAP5-7","KRTAP5_7")
 
-write.csv(dataExp,"/Users/mar/BIO/PROJECTS/DREAM/BEATAML/mydata/trainingExp.csv", row.names = FALSE, quote = FALSE)
+#write.csv(dataExp,"/Users/mar/BIO/PROJECTS/DREAM/BEATAML/mydata/trainingExp.csv", row.names = FALSE, quote = FALSE)
 
 inhs <- unique(ys$inhibitor)
 inhs <- data.table("inhibitor"=inhs)
@@ -311,8 +318,28 @@ for(i in 1:nrow(inhs)){
  yy <- dt[,auc]
  XX <- as.matrix(X)
  
- model <- xgboost(data=XX, label=yy, nround=40, objective="reg:squarederror")
- xgb.save(model,paste0(MYDATA_DIR,fname))
+ #model <- xgboost(data=XX, label=yy, nround=40, objective="reg:squarederror")
+ #xgb.save(model,paste0(MYDATA_DIR,fname))
+ 
+ model <- ranger(dependent.variable.name = "auc", data=dt, num.trees = 500, mtry = 250, min.node.size = 7)
+ saveRDS(model,paste0(MYDATA_DIR,fname),version = 2)
+ 
+ 
+ # ## Ranger grid search
+ # task <- makeRegrTask(id = fname,
+ #                         data = dt,
+ #                         target = "auc")
+ # 
+ # learner <- makeLearner("regr.ranger") 
+ # 
+ # rdesc <- makeResampleDesc("CV", iters = 10)
+ # ps <- makeParamSet(makeDiscreteParam("mtry", values=c(150,200,250,300,350)),
+ #                    makeDiscreteParam("num.trees", values=c(200,300,400,500,600)),
+ #                    makeDiscreteParam("min.node.size",values=c(1,3,5,7,10))) 
+ # 
+ # res = tuneParams(learner, task, rdesc, par.set = ps,
+ #                  control = makeTuneControlGrid()) 
+ 
 }
 
 

@@ -4,6 +4,7 @@ OUTPUT_DIR <- "/Users/mar/BIO/PROJECTS/DREAM/BEATAML/mydata/"
 
 library(data.table)
 library(xgboost)
+library(ranger)
 
 data1 <- read.csv(paste0(DATA_DIR,"clinical_categorical.csv"))
 data1 <- data.table(data1)
@@ -245,6 +246,8 @@ mean2 <- data2[,mean(WBC.Count,na.rm=TRUE)]
 data2[is.na(WBC.Count), WBC.Count:=mean2]
 mean3 <- data2[,mean(ageAtDiagnosis,na.rm=TRUE)]
 data2[is.na(ageAtDiagnosis), ageAtDiagnosis:=mean3]
+mean4 <- data2[,mean(ageAtSpecimenAcquisition,na.rm=TRUE)]
+data2[is.na(ageAtSpecimenAcquisition), ageAtSpecimenAcquisition:=mean4]
 
 data <- merge(data,data2,by="lab_id")
 
@@ -292,9 +295,12 @@ allPreds <- data.table()
 for(i in 1:nrow(models)){
   inh <- models[i,inhibitor]
   fname <- models[i,filename]
-  model <- xgb.load(paste0(MODEL_DIR,fname))
+  #model <- xgb.load(paste0(MODEL_DIR,fname))
+  model <- readRDS(paste0(MODEL_DIR,fname))
   
-  aucs <- predict(model,XX)
+  #aucs <- predict(model,XX)
+  ppp <- predict(model,dataExp)
+  aucs <- ppp$predictions
   pred <- copy(predTemplate)
   pred[, inhibitor := inh]
   pred <- cbind(pred,aucs)
