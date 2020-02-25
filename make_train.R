@@ -279,8 +279,9 @@ data <- merge(data,data4,by="lab_id")
 #write.csv(data,"/Users/mar/BIO/PROJECTS/DREAM/BEATAML/mydata/training.csv", row.names = FALSE, quote = FALSE)
 
 data5 <- read.csv(paste0(DATA_DIR,"rnaseq.csv"))
-#data5 <- data.table(data5)
-#data5 <- data5[Symbol %in% genes[,gene]] 
+data5 <- data.table(data5)
+data5 <- data5[Symbol %in% genes[,gene]] 
+data5 <- data.frame(data5)
 data5$Symbol <- NULL
 data6 <- setNames(data.frame(t(data5[,-1])), data5[,1])
 data6 <- setDT(data6, keep.rownames = TRUE)
@@ -313,16 +314,23 @@ for(i in 1:nrow(inhs)){
  dt[, lab_id:=NULL]
  dt[, inhibitor:=NULL]
  
+ #####
+ #for(var in names(dt)){
+#   print(var)
+# }
+ 
+ #####
+ 
  X <- copy(dt)
  X[,auc:=NULL]
  yy <- dt[,auc]
  XX <- as.matrix(X)
  
- #model <- xgboost(data=XX, label=yy, nround=40, objective="reg:squarederror")
- #xgb.save(model,paste0(MYDATA_DIR,fname))
+ model <- xgboost(data=XX, label=yy, nround=20, objective="reg:squarederror")
+ xgb.save(model,paste0(MYDATA_DIR,fname))
  
- model <- ranger(dependent.variable.name = "auc", data=dt, num.trees = 500, mtry = 250, min.node.size = 7)
- saveRDS(model,paste0(MYDATA_DIR,fname),version = 2)
+ #model <- ranger(dependent.variable.name = "auc", data=dt, num.trees = 500, mtry = 250, min.node.size = 7)
+ #saveRDS(model,paste0(MYDATA_DIR,fname),version = 2)
  
  
  # ## Ranger grid search

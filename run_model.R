@@ -272,7 +272,10 @@ for(i in 1:nrow(data3)){
 data <- merge(data,data4,by="lab_id")
 
 data5 <- read.csv(paste0(DATA_DIR,"rnaseq.csv"))
+data5 <- data.table(data5)
+data5 <- data5[Symbol %in% genes[,gene]] 
 data5$Symbol <- NULL
+data5 <- data.frame(data5)
 data6 <- setNames(data.frame(t(data5[,-1])), data5[,1])
 data6 <- setDT(data6, keep.rownames = TRUE)
 data6[, rn := gsub("X","",rn)] 
@@ -295,12 +298,12 @@ allPreds <- data.table()
 for(i in 1:nrow(models)){
   inh <- models[i,inhibitor]
   fname <- models[i,filename]
-  #model <- xgb.load(paste0(MODEL_DIR,fname))
-  model <- readRDS(paste0(MODEL_DIR,fname))
+  model <- xgb.load(paste0(MODEL_DIR,fname))
+  #model <- readRDS(paste0(MODEL_DIR,fname))
   
-  #aucs <- predict(model,XX)
-  ppp <- predict(model,dataExp)
-  aucs <- ppp$predictions
+  aucs <- predict(model,XX)
+  #ppp <- predict(model,dataExp)
+  #aucs <- ppp$predictions
   pred <- copy(predTemplate)
   pred[, inhibitor := inh]
   pred <- cbind(pred,aucs)
