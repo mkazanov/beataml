@@ -280,7 +280,7 @@ data <- merge(data,data4,by="lab_id")
 
 data5 <- read.csv(paste0(DATA_DIR,"rnaseq.csv"))
 data5 <- data.table(data5)
-data5 <- data5[Symbol %in% genes[,gene]] 
+#data5 <- data5[Symbol %in% genes[,gene]] 
 data5 <- data.frame(data5)
 data5$Symbol <- NULL
 data6 <- setNames(data.frame(t(data5[,-1])), data5[,1])
@@ -291,9 +291,9 @@ data6[, rn := NULL]
 
 dataExp <- merge(data,data6,by="lab_id")
 dataExp <- dataExp[lab_id != "14-00800"]
-#setnames(dataExp,"KRTAP5-7","KRTAP5_7")
+setnames(dataExp,"KRTAP5-7","KRTAP5_7")
 
-#write.csv(dataExp,"/Users/mar/BIO/PROJECTS/DREAM/BEATAML/mydata/trainingExp.csv", row.names = FALSE, quote = FALSE)
+write.csv(dataExp,"/Users/mar/BIO/PROJECTS/DREAM/BEATAML/mydata/trainingExp.csv", row.names = FALSE, quote = FALSE)
 
 inhs <- unique(ys$inhibitor)
 inhs <- data.table("inhibitor"=inhs)
@@ -315,9 +315,25 @@ for(i in 1:nrow(inhs)){
  dt[, inhibitor:=NULL]
  
  #####
- #for(var in names(dt)){
-#   print(var)
-# }
+ pvals <- data.table("var"=rep("",63995),"pvalue"=rep(1,63995))
+ j <- 1
+ for(variable in names(dt)){
+   if(variable == "auc"){
+    next
+   }
+   formula <- paste0("auc ~ ",variable)
+   lmmodel <- lm(formula, data=dt)
+   pvals[j, var := variable]
+   
+   if(nrow(summary(lmmodel)$coefficients) == 2){
+    pval <- summary(lmmodel)$coefficients[2,4]
+    pvals[j, pvalue := pval]
+   }
+   j <- j + 1
+   if(j %% 1000 == 0){
+     print(i)
+   }
+ }
  
  #####
  
